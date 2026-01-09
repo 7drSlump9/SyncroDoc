@@ -14,7 +14,7 @@
  * per ridurre i rischi di XSS. In produzione, preferibilmente usare HttpOnly cookies.
  */
 
-const API_URL = 'http://localhost:5000/api/auth';
+const API_URL = 'http://localhost:3001/api/auth';
 
 /**
  * Funzione helper per fare richieste autenticate
@@ -49,11 +49,21 @@ export const authService = {
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await response.json();
-
+      // Controlla prima se la risposta è ok e se è JSON
       if (!response.ok) {
-        throw new Error(data.message || 'Errore durante il login');
+        // Prova a parsare come JSON, altrimenti usa messaggio generico
+        let errorMessage = 'Errore durante il login';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // Se non è JSON, usa lo status text
+          errorMessage = `Errore ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const data = await response.json();
 
       // Salva il token in sessionStorage (non localStorage) - meno vulnerabile a XSS
       sessionStorage.setItem('token', data.token);
@@ -83,11 +93,21 @@ export const authService = {
         body: JSON.stringify({ username, email, password, confirmPassword }),
       });
 
-      const data = await response.json();
-
+      // Controlla prima se la risposta è ok e se è JSON
       if (!response.ok) {
-        throw new Error(data.message || 'Errore durante la registrazione');
+        // Prova a parsare come JSON, altrimenti usa messaggio generico
+        let errorMessage = 'Errore durante la registrazione';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // Se non è JSON, usa lo status text
+          errorMessage = `Errore ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const data = await response.json();
 
       // Salva il token in sessionStorage
       sessionStorage.setItem('token', data.token);

@@ -24,7 +24,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.BACKEND_PORT || 3001;
 
 // Validazione JWT_SECRET - OBBLIGATORIO in produzione
 const JWT_SECRET = process.env.JWT_SECRET;
