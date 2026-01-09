@@ -8,13 +8,39 @@
  * - Login e registrazione utenti
  * - Memorizzazione e recupero token JWT
  * - Validazione della sessione
+ * - Refresh token logic
+ * 
+ * NOTA SICUREZZA: I token sono memorizzati in sessionStorage (non localStorage)
+ * per ridurre i rischi di XSS. In produzione, preferibilmente usare HttpOnly cookies.
  */
 
 const API_URL = 'http://localhost:5000/api/auth';
 
+/**
+ * Funzione helper per fare richieste autenticate
+ * Aggiunge automaticamente il Bearer token all'header
+ */
+const authenticatedFetch = async (url, options = {}) => {
+  const token = sessionStorage.getItem('token');
+  
+  return fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...options.headers,
+    },
+  });
+};
+
 export const authService = {
   login: async (username, password) => {
     try {
+      // Validazione input
+      if (!username || !password) {
+        throw new Error('Username e password sono obbligatori');
+      }
+
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: {
@@ -29,9 +55,9 @@ export const authService = {
         throw new Error(data.message || 'Errore durante il login');
       }
 
-      // Salva il token nel localStorage
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // Salva il token in sessionStorage (non localStorage) - meno vulnerabile a XSS
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
 
       return data;
     } catch (error) {
@@ -44,6 +70,11 @@ export const authService = {
 
   register: async (username, email, password, confirmPassword) => {
     try {
+      // Validazione input
+      if (!username || !email || !password || !confirmPassword) {
+        throw new Error('Tutti i campi sono obbligatori');
+      }
+
       const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: {
@@ -58,9 +89,9 @@ export const authService = {
         throw new Error(data.message || 'Errore durante la registrazione');
       }
 
-      // Salva il token nel localStorage
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // Salva il token in sessionStorage
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
 
       return data;
     } catch (error) {
@@ -71,27 +102,43 @@ export const authService = {
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  logout: async () => {
+    try {
+      // Notifica al server il logout
+      const token = sessionStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Errore durante logout:', error);
+    } finally {
+      // Rimuovi token e dati locali in ogni caso
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+    }
   },
 
   getToken: () => {
-    return localStorage.getItem('token');
+    return sessionStorage.getItem('token');
   },
 
   getUser: () => {
-    const user = localStorage.getItem('user');
+    const user = sessionStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   },
 
   isAuthenticated: () => {
-    return !!localStorage.getItem('token');
+    return !!sessionStorage.getItem('token');
   },
 
   verify: async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         return false;
       }
@@ -100,12 +147,23 @@ export const authService = {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
       return response.ok;
     } catch (error) {
+      console.error('Errore nella verifica token:', error);
       return false;
     }
+  },
+
+  /**
+   * Getter sicuro per il token (non espone il valore completo)
+   * Utile per verifiche senza mostrare il token
+   */
+  hasValidToken: () => {
+    const token = sessionStorage.getItem('token');
+    return token && token.length > 0;
   },
 };

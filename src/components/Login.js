@@ -26,7 +26,6 @@ function Login({ onLoginSuccess }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [isRegister, setIsRegister] = useState(false);
-  const [token, setToken] = useState('');
 
   useEffect(() => {
     // Controlla se l'utente è già loggato
@@ -36,7 +35,7 @@ function Login({ onLoginSuccess }) {
     if (savedToken && savedUser) {
       setIsLoggedIn(true);
       setUser(savedUser);
-      setToken(savedToken);
+      // NON memorizzare il token nello stato per evitare esposizione
     }
   }, []);
 
@@ -52,7 +51,6 @@ function Login({ onLoginSuccess }) {
 
       const response = await authService.login(username, password);
       
-      setToken(response.token);
       setUser(response.user);
       setIsLoggedIn(true);
       setUsername('');
@@ -83,13 +81,12 @@ function Login({ onLoginSuccess }) {
         throw new Error('Le password non coincidono');
       }
 
-      if (password.length < 6) {
-        throw new Error('La password deve avere almeno 6 caratteri');
+      if (password.length < 8) {
+        throw new Error('La password deve avere almeno 8 caratteri');
       }
 
       const response = await authService.register(username, email, password, confirmPassword);
       
-      setToken(response.token);
       setUser(response.user);
       setIsLoggedIn(true);
       setUsername('');
@@ -104,8 +101,8 @@ function Login({ onLoginSuccess }) {
     }
   };
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleLogout = async () => {
+    await authService.logout();
     setUsername('');
     setEmail('');
     setPassword('');
@@ -113,7 +110,6 @@ function Login({ onLoginSuccess }) {
     setError('');
     setIsLoggedIn(false);
     setUser(null);
-    setToken('');
     setIsRegister(false);
   };
 
@@ -136,12 +132,9 @@ function Login({ onLoginSuccess }) {
             <p><strong>Email:</strong> {user.email}</p>
             <p><strong>ID:</strong> {user.id}</p>
           </div>
-          <div className="token-section">
-            <p><strong>Token JWT:</strong></p>
-            <div className="token-box">
-              <code>{token.substring(0, 50)}...</code>
-            </div>
-          </div>
+          <p style={{ fontSize: '0.9em', color: '#666', marginTop: '1rem' }}>
+            ✓ Token JWT archiviato in modo sicuro (sessionStorage)
+          </p>
           <button className="logout-btn" onClick={handleLogout}>
             Logout
           </button>
@@ -236,3 +229,4 @@ function Login({ onLoginSuccess }) {
 }
 
 export default Login;
+

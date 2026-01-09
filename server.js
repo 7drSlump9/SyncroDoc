@@ -19,15 +19,77 @@ const sqlite3 = require('sqlite3').verbose();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production';
+
+// Validazione JWT_SECRET - OBBLIGATORIO in produzione
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('ERRORE CRITICO: JWT_SECRET non è definito in .env');
+  console.error('Impostare JWT_SECRET nell\'environment: export JWT_SECRET="una_chiave_sicura_lunga_e_casuale"');
+  process.exit(1);
+}
+
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+if (!JWT_REFRESH_SECRET) {
+  console.error('ERRORE CRITICO: JWT_REFRESH_SECRET non è definito in .env');
+  process.exit(1);
+}
+
+// Configurazione CORS - WHITELIST di origini
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  process.env.ALLOWED_ORIGIN || 'http://localhost:3000'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Non autorizzato da CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+// Rate Limiting - Protezione contro brute force
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuti
+  max: 5, // max 5 tentativi
+  message: 'Troppi tentativi di login. Riprova tra 15 minuti.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 ora
+  max: 3, // max 3 registrazioni per IP
+  message: 'Troppi tentativi di registrazione. Riprova tra 1 ora.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuti
+  max: 100, // max 100 richieste per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cookieParser());
+app.use(cors(corsOptions));
+app.use(generalLimiter);
 
 // Database setup - SQLite per memorizzare i dati degli utenti
 const db = new sqlite3.Database('./users.db', (err) => {
@@ -99,7 +161,7 @@ function verifyToken(req, res, next) {
 }
 
 // Route: Registrazione
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', registerLimiter, (req, res) => {
   const { username, email, password, confirmPassword } = req.body;
 
   // Validazione
@@ -107,12 +169,19 @@ app.post('/api/auth/register', (req, res) => {
     return res.status(400).json({ message: 'Tutti i campi sono obbligatori' });
   }
 
+  // Validazione email basic
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: 'Email non valida' });
+  }
+
   if (password !== confirmPassword) {
     return res.status(400).json({ message: 'Le password non coincidono' });
   }
 
-  if (password.length < 6) {
-    return res.status(400).json({ message: 'La password deve avere almeno 6 caratteri' });
+  // Password minimo 8 caratteri (OWASP recommendation)
+  if (password.length < 8) {
+    return res.status(400).json({ message: 'La password deve avere almeno 8 caratteri' });
   }
 
   // Cripta la password
@@ -148,7 +217,7 @@ app.post('/api/auth/register', (req, res) => {
 });
 
 // Route: Login - Supporta login sia con username che con email
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
 
   // Validazione
