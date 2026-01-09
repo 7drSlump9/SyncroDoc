@@ -153,7 +153,7 @@ function Login({ onLoginSuccess }) {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h1>{isRegister ? 'Registrazione' : 'Login'}</h1>
+        <h1>{isRegister ? 'Registrazione' : 'SyncroDoc'}</h1>
         
         <form onSubmit={isRegister ? handleRegister : handleLogin}>
           <div className="form-group">
