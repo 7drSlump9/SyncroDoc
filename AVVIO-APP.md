@@ -6,29 +6,36 @@ Hai 3 modi per avviare l'applicazione completa (Backend + Frontend):
 
 ### 1️⃣ Script Automatico (CONSIGLIATO) ⭐
 
-**Opzione A - PowerShell (Consigliato):**
+**Opzione A - NPM Script (Tutti i sistemi):**
 
 ```bash
 npm run start-app
 ```
 
-oppure
+**Opzione B - Windows PowerShell:**
 
 ```powershell
 .\start-app.ps1
 ```
 
-**Opzione B - Batch File:**
+**Opzione C - Windows CMD:**
 
 ```cmd
 start-app.bat
 ```
 
+**Opzione D - Linux/Mac:**
+
+```bash
+chmod +x start-app.sh  # Rendi eseguibile (solo la prima volta)
+./start-app.sh
+```
+
 **Cosa fa lo script automatico:**
 
 - ✅ Controlla se le porte 5000 e 3001 sono occupate
-- ✅ Termina automaticamente eventuali processi esistenti
-- ✅ Avvia sia il Backend che il Frontend contemporaneamente
+- ✅ Termina automaticamente eventuali processi Node.js esistenti
+- ✅ Avvia sia il Backend (porta 3001) che il Frontend (porta 5000) contemporaneamente
 - ✅ Mostra messaggi colorati e informativi
 
 ---
@@ -111,6 +118,21 @@ netstat -ano | findstr :3001
 
 # Termina processo (sostituisci PID con l'ID del processo)
 taskkill /PID PID /F
+```
+
+**Linux/Mac:**
+
+```bash
+# Trova processi sulle porte
+lsof -i :5000
+lsof -i :3001
+
+# Termina processo (sostituisci PID con l'ID del processo)
+kill -9 PID
+
+# Oppure termina direttamente sulla porta
+lsof -ti :5000 | xargs kill -9
+lsof -ti :3001 | xargs kill -9
 ```
 
 ---
